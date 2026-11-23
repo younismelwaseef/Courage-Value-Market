@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#7DD3FC">
+    <title>Courageous vs. Non-Courageous Mobile Game</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Fonts: Fredoka for playful display & Inter for crisp readability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        html, body {
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.55s ease-in-out;
+        }
+
+        .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        .mobile-shell {
+            height: 100dvh;
+            padding-top: max(12px, env(safe-area-inset-top));
+            padding-bottom: max(14px, env(safe-area-inset-bottom));
+            padding-left: max(14px, env(safe-area-inset-left));
+            padding-right: max(14px, env(safe-area-inset-right));
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.92); opacity: 0; }
+            70% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px) rotate(-1.5deg); }
+            40% { transform: translateX(10px) rotate(1.5deg); }
+            60% { transform: translateX(-7px) rotate(-1deg); }
+            80% { transform: translateX(7px) rotate(1deg); }
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes trophyBounce {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-4px) rotate(-8deg); }
+            75% { transform: translateY(-4px) rotate(8deg); }
+        }
+
+        @keyframes floatUpFade {
+            0% { transform: translate(-50%, 0) scale(0.8); opacity: 0; }
+            25% { transform: translate(-50%, -14px) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -44px) scale(1); opacity: 0; }
+        }
+
+        .animate-pop {
+            animation: popIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .animate-correct {
+            animation: pulseGlow 0.35s ease-in-out;
+        }
+
+        .trophy-bob {
+            display: inline-block;
+            animation: trophyBounce 2.2s infinite ease-in-out;
+        }
+
+        .floating-toast {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            pointer-events: none;
+            animation: floatUpFade 0.8s ease-out forwards;
+            z-index: 30;
+        }
+
+        .game-btn {
+            touch-action: manipulation;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.15s ease;
+        }
+
+        .game-btn:active:not(:disabled) {
+            transform: translateY(5px) scale(0.98);
+        }
+
+        #scenario-sign {
+            touch-action: pan-y;
+            will-change: transform;
+        }
+
+        .confetti-piece {
+            position: fixed;
+            width: 11px;
+            height: 11px;
+            top: -20px;
+            z-index: 60;
+            pointer-events: none;
+            border-radius: 3px;
+            animation: confettiFall linear forwards;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body id="app-body" class="flex flex-col items-center justify-center">
+
+    <!-- MOBILE GAME CONTAINER -->
+    <div class="mobile-shell w-full max-w-[460px] flex flex-col justify-between relative">
+
+        <!-- TOP HUD BAR -->
+        <header class="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 shrink-0 z-10">
+            <!-- Top Left: Theme & Sound Controls -->
+            <div class="flex items-center justify-start gap-1.5">
+                <button id="theme-btn" onclick="cycleTheme()" aria-label="Change vibrant background theme"
+                    class="game-btn bg-white/95 active:bg-white text-slate-900 font-bold text-xs px-2.5 py-2 rounded-2xl border-[3px] border-slate-900 shadow-[0_3px_0_#0f172a] flex items-center gap-1 cursor-pointer">
+                    <span class="text-sm">🎨</span>
+                    <span class="hidden xs:inline">Theme</span>
+                </button>
+                <button id="sound-btn" onclick="toggleSound()" aria-label="Toggle sound effects"
+                    class="game-btn bg-white/95 active:bg-white text-slate-900 font-bold text-xs p-2 rounded-2xl border-[3px] border-slate-900 shadow-[0_3px_0_#0f172a] cursor-pointer">
+                    <span id="sound-icon" class="text-sm">🔊</span>
+                </button>
+            </div>
+
+            <!-- Top Middle: Round & Cumulative Score Display (Round 1: xx/12, Round 2: xx/24, Round 3: xx/36) -->
+            <div class="flex flex-col items-center justify-center">
+                <div class="bg-white/95 px-3 py-1.5 rounded-2xl border-[3.5px] border-slate-900 shadow-[0_4px_0_#0f172a] text-center min-w-[132px]">
+                    <div class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 leading-none mb-0.5">
+                        Match Progress
+                    </div>
+                    <div id="score-display" class="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight whitespace-nowrap">
+                        Round 1: 0/6
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Right: Wins Counter with Trophy Emoji -->
+            <div class="flex items-center justify-end">
+                <div class="bg-amber-300 px-2.5 py-1.5 rounded-2xl border-[3.5px] border-slate-900 shadow-[0_4px_0_#0f172a] text-center">
+                    <div class="text-[9px] font-extrabold uppercase tracking-wider text-amber-950 leading-none mb-0.5">
+                        Match Wins
+                    </div>
+                    <div id="wins-display" class="font-display text-base sm:text-lg font-bold text-slate-950 leading-tight whitespace-nowrap">
+                        wins<span class="trophy-bob">🏆</span>: 0
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SUB-HEADER: Round Progress Bar & Theme Badge -->
+        <div class="w-full flex flex-col items-center gap-1.5 my-1 shrink-0 z-10">
+            <div class="flex items-center justify-between w-full px-1">
+                <span id="question-counter" class="bg-slate-900/85 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                    Round 1/3 • Prompt 1/6
+                </span>
+                <span id="theme-name-pill" class="bg-white/75 text-slate-900 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                    Baby Blue & Bright Yellow
+                </span>
+            </div>
+            <!-- 6-Segment Progress Bar -->
+            <div id="progress-dots" class="grid grid-cols-6 gap-1.5 w-full px-0.5"></div>
+        </div>
+
+        <!-- START HUB SCREEN (Shown before entering the game) -->
+        <section id="start-hub" class="w-full flex-1 flex flex-col items-center justify-center my-1 z-10">
+            <div class="w-full bg-white/95 rounded-3xl border-[4px] border-slate-900 shadow-[0_8px_0_#0f172a] p-5 sm:p-6 flex flex-col items-center text-center animate-pop relative overflow-hidden">
+                <!-- Decorative Corner Bolts -->
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute top-3 left-3"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute top-3 right-3"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute bottom-3 left-3"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute bottom-3 right-3"></div>
+
+                <!-- Regal Lion Crest Emblem (Inspired by 2A Courage Crest) -->
+                <div class="relative mb-2 flex flex-col items-center">
+                    <div class="bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-display font-extrabold text-[11px] tracking-widest px-3.5 py-0.5 rounded-full border-[2.5px] border-slate-900 shadow-xs -mb-2.5 z-10 uppercase">
+                        2A • Courage
+                    </div>
+                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-b from-[#1e293b] via-[#0f172a] to-[#4c0519] border-[4px] border-amber-400 ring-[3px] ring-slate-900 shadow-lg flex items-center justify-center relative overflow-hidden">
+                        <!-- Custom Royal Gold Lion & Torch Crest SVG -->
+                        <svg viewBox="0 0 120 120" class="w-20 h-20 sm:w-24 sm:h-24 drop-shadow-md" aria-label="Royal Gold Lion Holding Torch">
+                            <!-- Laurel Wreath Left & Right -->
+                            <path d="M26 92 C14 76, 14 48, 28 30" fill="none" stroke="#FBBF24" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 4"/>
+                            <path d="M94 92 C106 76, 106 48, 92 30" fill="none" stroke="#FBBF24" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 4"/>
+                            <!-- Torch Handle & Flame -->
+                            <rect x="28" y="52" width="6" height="32" rx="2" fill="#D97706" stroke="#0F172A" stroke-width="2"/>
+                            <polygon points="25,52 37,52 35,44 27,44" fill="#F59E0B" stroke="#0F172A" stroke-width="2"/>
+                            <path d="M31 44 C22 36, 26 24, 31 18 C36 24, 40 36, 31 44 Z" fill="#EF4444" stroke="#FDE047" stroke-width="2"/>
+                            <path d="M31 43 C27 37, 29 30, 31 26 C33 30, 35 37, 31 43 Z" fill="#FDE047"/>
+                            <!-- Regal Golden Lion -->
+                            <circle cx="66" cy="52" r="22" fill="#F59E0B" stroke="#0F172A" stroke-width="2.5"/>
+                            <circle cx="66" cy="52" r="16" fill="#FBBF24"/>
+                            <!-- Lion Ears & Face -->
+                            <circle cx="53" cy="39" r="5" fill="#F59E0B" stroke="#0F172A" stroke-width="2"/>
+                            <circle cx="79" cy="39" r="5" fill="#F59E0B" stroke="#0F172A" stroke-width="2"/>
+                            <ellipse cx="66" cy="54" rx="12" ry="11" fill="#FDE68A" stroke="#0F172A" stroke-width="2"/>
+                            <!-- Eyes & Nose -->
+                            <circle cx="61" cy="51" r="2" fill="#0F172A"/>
+                            <circle cx="71" cy="51" r="2" fill="#0F172A"/>
+                            <polygon points="63,56 69,56 66,60" fill="#92400E"/>
+                            <path d="M61 62 Q66 65 71 62" fill="none" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+                            <!-- Lion Paws Holding Torch -->
+                            <ellipse cx="38" cy="64" rx="8" ry="5" fill="#FBBF24" stroke="#0F172A" stroke-width="2"/>
+                            <ellipse cx="42" cy="76" rx="9" ry="5.5" fill="#F59E0B" stroke="#0F172A" stroke-width="2"/>
+                            <!-- Chest & Body -->
+                            <path d="M52 72 Q66 96 82 72" fill="#F59E0B" stroke="#0F172A" stroke-width="2.5"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- BIG RED & GOLD TITLE: VALUE MARKET GAME -->
+                <div class="mb-2 leading-none">
+                    <h1 class="font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight bg-gradient-to-b from-red-500 via-red-600 to-rose-800 bg-clip-text text-transparent drop-shadow-[0_2px_0_rgba(15,23,42,0.25)]">
+                        VALUE MARKET
+                    </h1>
+                    <div class="inline-block mt-1 px-4 py-0.5 rounded-xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 border-[3px] border-slate-900 shadow-[0_3px_0_#0f172a]">
+                        <span class="font-display text-xl sm:text-2xl font-extrabold uppercase tracking-wider text-red-700 drop-shadow-[0_1px_0_#FEF08A]">
+                            GAME
+                        </span>
+                    </div>
+                </div>
+
+                <p class="text-slate-700 font-semibold text-xs sm:text-sm mb-4 leading-snug max-w-[290px]">
+                    Courageous vs. Non-Courageous! Sort <span class="text-slate-900 font-bold">3 rounds</span> of <span class="text-slate-900 font-bold">6 prompts</span> by tapping <span class="text-blue-600 font-bold">Courageous</span> or <span class="text-red-600 font-bold">Non-Courageous</span>.
+                </p>
+
+                <button id="hub-play-btn" onclick="enterGameFromHub()"
+                    class="game-btn w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-500 active:from-emerald-500 active:to-emerald-600 text-slate-950 font-display text-2xl sm:text-3xl font-bold border-[4px] border-slate-900 shadow-[0_6px_0_#065f46] active:shadow-[0_1px_0_#065f46] cursor-pointer flex items-center justify-center gap-2">
+                    <span>PLAY</span>
+                    <span>▶️</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- MAIN PLAY AREA: Left Button + Center Scenario Sign + Right Button (Hidden until Play is pressed) -->
+        <main id="game-play-area" class="hidden w-full flex-1 grid-cols-[84px_1fr_84px] sm:grid-cols-[100px_1fr_100px] items-stretch gap-2 min-h-0 my-1">
+            <!-- LEFT SIDE: Courageous Button (Blue) -->
+            <button id="btn-courageous" onclick="handleChoice(true)"
+                class="game-btn group relative bg-gradient-to-b from-blue-500 to-blue-600 active:from-blue-600 active:to-blue-700 text-white font-display py-3 px-1.5 rounded-3xl border-[4px] border-slate-900 shadow-[0_6px_0_#1e3a8a] active:shadow-[0_1px_0_#1e3a8a] cursor-pointer flex flex-col items-center justify-center gap-2 my-3">
+                <span class="text-3xl sm:text-4xl">🦁</span>
+                <span class="text-xs sm:text-sm font-bold tracking-tight drop-shadow-xs leading-tight text-center">
+                    Courageous
+                </span>
+            </button>
+
+            <!-- CENTER: Scenario Sign Board -->
+            <div class="w-full h-full flex flex-col items-center justify-center relative min-h-0">
+                <!-- Wooden Sign Post Top Cap -->
+                <div class="w-8 h-3 bg-amber-700 border-x-[4px] border-t-[4px] border-slate-900 rounded-t-lg shrink-0"></div>
+
+                <!-- Main Sign Card -->
+                <div id="scenario-sign"
+                    class="w-full flex-1 bg-white rounded-3xl border-[4px] border-slate-900 shadow-[0_8px_0_#0f172a] px-3.5 py-4 flex flex-col items-center justify-between text-center relative overflow-hidden">
+
+                    <!-- Decorative Sign Corner Bolts -->
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute top-2.5 left-2.5"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute top-2.5 right-2.5"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute bottom-2.5 left-2.5"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-slate-900 absolute bottom-2.5 right-2.5"></div>
+
+                    <!-- Top Sign Label & Instant Feedback Pill -->
+                    <div class="flex flex-col items-center mt-0.5">
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                            Scenario Sign
+                        </span>
+                        <div id="feedback-badge" class="hidden mt-1.5 px-3 py-0.5 rounded-full font-display font-bold text-xs sm:text-sm border-2 border-slate-900">
+                        </div>
+                    </div>
+
+                    <!-- Scenario Text -->
+                    <div class="flex-1 flex items-center justify-center px-1 my-2">
+                        <p id="scenario-text" class="font-display text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+                            Loading scenario...
+                        </p>
+                    </div>
+
+                    <!-- Mobile Swipe Gesture Hint -->
+                    <div class="w-full flex items-center justify-between text-[10px] font-bold text-slate-400 px-1 pb-0.5">
+                        <span class="text-blue-600/80">← Courageous</span>
+                        <span class="text-red-500/80">Non-Courageous →</span>
+                    </div>
+
+                    <!-- Swipe Direction Overlay Indicator -->
+                    <div id="swipe-hint-overlay" class="hidden absolute inset-0 pointer-events-none flex items-center justify-center font-display text-lg sm:text-xl font-bold uppercase tracking-wider text-center px-2"></div>
+                </div>
+
+                <!-- Wooden Sign Post Bottom Stand -->
+                <div class="w-10 h-3.5 bg-amber-800 border-x-[4px] border-b-[4px] border-slate-900 rounded-b-xl shrink-0"></div>
+            </div>
+
+            <!-- RIGHT SIDE: Non-Courageous Button (Red) -->
+            <button id="btn-non-courageous" onclick="handleChoice(false)"
+                class="game-btn group relative bg-gradient-to-b from-red-500 to-red-600 active:from-red-600 active:to-red-700 text-white font-display py-3 px-1.5 rounded-3xl border-[4px] border-slate-900 shadow-[0_6px_0_#7f1d1d] active:shadow-[0_1px_0_#7f1d1d] cursor-pointer flex flex-col items-center justify-center gap-2 my-3">
+                <span class="text-3xl sm:text-4xl">🙈</span>
+                <span class="text-[11px] sm:text-xs font-bold tracking-tight drop-shadow-xs leading-tight text-center">
+                    Non-Courageous
+                </span>
+            </button>
+        </main>
+    </div>
+
+    <!-- END-OF-ROUND & MATCH OVER MODAL -->
+    <div id="round-modal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+        <div id="modal-card" class="bg-white w-full max-w-[400px] rounded-3xl border-[4px] border-slate-900 shadow-[0_10px_0_#0f172a] p-6 text-center animate-pop">
+            <div id="modal-emoji" class="text-6xl mb-2">🏆</div>
+            <h2 id="modal-title" class="font-display text-3xl font-bold text-slate-900 mb-1.5">
+                Match over
+            </h2>
+            <div id="modal-score-pill" class="inline-block bg-amber-300 border-[3px] border-slate-900 font-display text-2xl font-bold px-5 py-1 rounded-2xl mb-3">
+                Round 1: 6/6
+            </div>
+            <p id="modal-message" class="text-slate-700 font-medium text-sm sm:text-base mb-5 leading-relaxed">
+                Great job! Ready for the next round?
+            </p>
+            <button id="modal-action-btn" onclick="handleModalAction()"
+                class="w-full py-3.5 px-6 rounded-2xl bg-emerald-500 active:bg-emerald-400 text-white font-display text-xl sm:text-2xl font-bold border-[4px] border-slate-900 shadow-[0_5px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer">
+                Next Round 🚀
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. ALL 96 SCENARIOS (48 COURAGEOUS + 48 NON-COURAGEOUS)
+        // =========================================================================
+        const COURAGEOUS_EXAMPLES = [
+            "A student steps in to help another student who is being bullied in the hallway.",
+            "Admitting you broke a classmate's project instead of letting someone else take the blame.",
+            "Raising your hand in class to ask a question even when you are afraid of sounding silly.",
+            "Standing up to a close friend when they are spreading a mean rumor.",
+            "Trying out for the school play or sports team despite never having done it before.",
+            "Apologizing sincerely to someone after realizing you were in the wrong.",
+            "Sitting next to the new student at lunch when everyone else is ignoring them.",
+            "Speaking in front of the entire school during an assembly despite severe stage fright.",
+            "Telling a teacher or parent when a friend is doing something dangerous.",
+            "Going down the tallest slide at the waterpark even though your stomach is in knots.",
+            "Defending an unpopular opinion respectfully during a class debate.",
+            "Jumping into the deep end of the pool for the first time after learning to swim.",
+            "Asking a teacher for extra help when you are falling behind in a tough subject.",
+            "Stepping onto a stage to perform a solo musical piece or dance routine.",
+            "Refusing to cheat on a test even when everyone around you is doing it.",
+            "Confronting a neighbor whose dog is off-leash and scaring younger kids.",
+            "Returning a lost wallet full of cash to the front office.",
+            "Trying an unfamiliar food from a different culture when visiting a friend's house.",
+            "Speaking up when a group project partner is being unfairly excluded.",
+            "Riding a roller coaster with a big drop after being scared of heights.",
+            "Sharing a personal poem or story you wrote with the rest of your class.",
+            "Getting back on a bicycle right after taking a painful fall.",
+            "Calling out a teammate for using offensive language during a game.",
+            "Entering a room full of strangers at a summer camp and introducing yourself.",
+            "Telling your parents you failed a test before they see the report card.",
+            "Volunteering to go first when no one else wants to present their project.",
+            "Walking away from a peer-pressure situation involving vaping or alcohol.",
+            "Learning how to ride a skateboard or ice skate in front of experienced friends.",
+            "Checking on an elderly neighbor during a bad storm to make sure they are safe.",
+            "Stepping up to be the goalkeeper when the regular keeper gets injured.",
+            "Speaking up for a younger sibling who is being teased at the park.",
+            "Going to the dentist or doctor for a shot without running away or hiding.",
+            "Starting a brand-new club at school when you aren't sure anyone will join.",
+            "Correcting a teacher politely when they mispronounce your name or another student's name.",
+            "Helping carry heavy groceries for someone struggling on the stairs.",
+            "Sleeping in your own bed without a nightlight after watching a scary movie.",
+            "Reporting cyberbullying you see in a group chat instead of just muting it.",
+            "Giving a compliment to someone you admire without expecting anything back.",
+            "Trying out a brand-new haircut or bold outfit style regardless of what others think.",
+            "Staying calm and calling 911 when someone gets injured on the playground.",
+            "Forgiving someone who hurt your feelings when they genuinely try to make amends.",
+            "Asking someone to be your partner for a school dance or project.",
+            "Climbing to the top of a rock-climbing wall even when your legs are shaking.",
+            "Admitting you don't know the answer to something instead of making up a lie.",
+            "Standing up for an animal that is being mistreated by other kids.",
+            "Moving to a new school and actively trying to make friends on day one.",
+            "Turning down an easy shortcut in a race so you can win fairly.",
+            "Sharing how you are feeling with a counselor or trusted adult when you are overwhelmed."
+        ];
+
+        const NON_COURAGEOUS_EXAMPLES = [
+            "Being too afraid to go down a playground slide.",
+            "Laughing along with a bully just so they don't target you next.",
+            "Blaming your little brother or sister for a mess you actually made.",
+            "Refusing to raise your hand in class even when you know the exact right answer.",
+            "Ignoring a new student sitting alone because you don't want to leave your friend group.",
+            "Pretending to be sick on the day you have to give a class presentation.",
+            "Copying answers from a classmate's paper instead of studying for the quiz.",
+            "Hiding in the bathroom to avoid talking to someone you had an argument with.",
+            "Giving up on a puzzle or math problem after two minutes because it feels too hard.",
+            "Letting a friend take the fall for a prank you both planned together.",
+            "Refusing to get into the shallow end of a pool because you're scared of getting your face wet.",
+            "Talking badly about someone behind their back instead of addressing the issue directly.",
+            "Quitting a sports team mid-season just because you aren't the star player.",
+            "Avoiding eye contact when a teacher asks who spilled water on the floor.",
+            "Saying 'yes' to something you don't want to do just to fit in with the crowd.",
+            "Refusing to try a single bite of a new vegetable or dish at dinner.",
+            "Deleting a text message instead of apologizing when you realize you were rude.",
+            "Standing by and filming a fight on your phone instead of getting an adult.",
+            "Refusing to ride a bike even with training wheels because you might tip over.",
+            "Lying about finishing your homework so you can play video games.",
+            "Backing out of a talent show at the very last second when it's your turn to walk out.",
+            "Keeping a found phone or toy instead of turning it in to lost-and-found.",
+            "Refusing to sleep over at a friend's house because you are scared of the dark.",
+            "Agreeing with everyone in a group just so you don't have to defend your own idea.",
+            "Running away when you accidentally knock over a display in a store.",
+            "Avoiding learning a new skill because you hate being a beginner at anything.",
+            "Ghosting a friend instead of telling them why you need some space.",
+            "Refusing to pet a gentle, friendly dog on a leash out of fear.",
+            "Cheating in a friendly board game because you can't handle losing.",
+            "Hiding a bad grade in the bottom of your backpack until the end of the semester.",
+            "Letting someone else do all the work in a group project while you take equal credit.",
+            "Refusing to ask an employee where an item is located in a store.",
+            "Crying or throwing a tantrum to get out of doing chores you promised to do.",
+            "Staying silent when someone makes a cruel joke about a classmate's appearance.",
+            "Refusing to walk across a small, sturdy wooden bridge over a creek.",
+            "Making up excuses for why you lost a game instead of congratulating the winner.",
+            "Avoiding a difficult conversation with your parents by locking yourself in your room.",
+            "Refusing to join a pickup game at recess because you're worried you'll miss a shot.",
+            "Spreading a rumor you know is false just to get attention from others.",
+            "Hiding behind a parent's legs whenever an adult says hello to you.",
+            "Refusing to turn off the hallway light when going to sleep.",
+            "Abandoning a friend at an event when a 'cooler' group invites you over.",
+            "Giving up on learning an instrument after one frustrating practice session.",
+            "Pretending you didn't see someone drop their books so you don't have to help pick them up.",
+            "Refusing to climb a short ladder to reach a book on a high shelf.",
+            "Blaming the referee or the weather every time your team loses.",
+            "Keeping quiet when a cashier accidentally gives you way too much change back.",
+            "Refusing to apologize first even when you know your stubbornness is ruining a friendship."
+        ];
+
+        const ALL_SCENARIOS = [
+            ...COURAGEOUS_EXAMPLES.map(text => ({ text, isCourageous: true })),
+            ...NON_COURAGEOUS_EXAMPLES.map(text => ({ text, isCourageous: false }))
+        ];
+
+        // =========================================================================
+        // 2. VIBRANT BACKGROUND THEMES
+        // =========================================================================
+        const VIBRANT_THEMES = [
+            {
+                name: "Baby Blue & Bright Yellow",
+                gradient: "linear-gradient(135deg, #7DD3FC 0%, #38BDF8 45%, #FDE047 100%)"
+            },
+            {
+                name: "Purple & Burgundy",
+                gradient: "linear-gradient(135deg, #9333EA 0%, #7E22CE 45%, #881337 100%)"
+            },
+            {
+                name: "Electric Coral & Mint",
+                gradient: "linear-gradient(135deg, #FB7185 0%, #F43F5E 45%, #34D399 100%)"
+            },
+            {
+                name: "Tangerine & Cyan",
+                gradient: "linear-gradient(135deg, #FB923C 0%, #F97316 45%, #22D3EE 100%)"
+            }
+        ];
+
+        // =========================================================================
+        // 3. GAME STATE, HAPTICS & WEB AUDIO SYNTHESIS
+        // =========================================================================
+        const QUESTIONS_PER_ROUND = 6;
+        const TOTAL_ROUNDS = 3;
+        const TOTAL_MATCH_QUESTIONS = QUESTIONS_PER_ROUND * TOTAL_ROUNDS; // 18
+        const WINS_STORAGE_KEY = "courageous_mobile_wins_v2";
+
+        let currentThemeIndex = 0;
+        let soundEnabled = true;
+        let isGameStarted = false;
+
+        let matchPrompts = [];      // 18 unique scenarios for the 3-round match (6 per round)
+        let currentRound = 1;       // 1, 2, or 3
+        let currentQuestionIdx = 0; // 0 to 5 within the current round
+        let matchScore = 0;         // Cumulative score across rounds (out of 6, 12, 18)
+        let roundResults = [];      // Boolean array for the 6 progress segments in current round
+        let totalWins = parseInt(localStorage.getItem(WINS_STORAGE_KEY) || "0", 10) || 0;
+        let isTransitioning = false;
+        let isMatchOverState = false;
+
+        // Safe mobile haptic vibration helper
+        function triggerHaptic(pattern) {
+            try {
+                if (navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            } catch (e) {}
+        }
+
+        // Web Audio API Sound Synthesizer (Zero external sound URLs)
+        let audioCtx = null;
+        function playTone(type) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                }
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'tap') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(680, now + 0.06);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+                    osc.start(now);
+                    osc.stop(now + 0.07);
+                } else if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, now);
+                    osc.frequency.setValueAtTime(880, now + 0.08);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                    osc.start(now);
+                    osc.stop(now + 0.24);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.linearRampToValueAtTime(145, now + 0.22);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                    osc.start(now);
+                    osc.stop(now + 0.24);
+                } else if (type === 'win') {
+                    const notes = [523.25, 659.25, 783.99, 1046.5];
+                    notes.forEach((freq, idx) => {
+                        const nOsc = audioCtx.createOscillator();
+                        const nGain = audioCtx.createGain();
+                        nOsc.type = 'triangle';
+                        nOsc.connect(nGain);
+                        nGain.connect(audioCtx.destination);
+                        const start = now + idx * 0.1;
+                        nOsc.frequency.setValueAtTime(freq, start);
+                        nGain.gain.setValueAtTime(0.18, start);
+                        nGain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
+                        nOsc.start(start);
+                        nOsc.stop(start + 0.28);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        // Fisher-Yates Shuffle
+        function shuffleArray(array) {
+            const copy = [...array];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // =========================================================================
+        // 4. CORE 3-ROUND MATCH GAMEPLAY FUNCTIONS
+        // =========================================================================
+        function enterGameFromHub() {
+            isGameStarted = true;
+            const hubEl = document.getElementById('start-hub');
+            const playAreaEl = document.getElementById('game-play-area');
+
+            hubEl.classList.add('hidden');
+            playAreaEl.classList.remove('hidden');
+            playAreaEl.classList.add('grid');
+
+            startNewMatch();
+        }
+
+        function startNewMatch() {
+            playTone('tap');
+            triggerHaptic(15);
+
+            const modal = document.getElementById('round-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            // Draw 18 unique scenarios for the entire 3-round match (6 per round)
+            matchPrompts = shuffleArray(ALL_SCENARIOS).slice(0, TOTAL_MATCH_QUESTIONS);
+            currentRound = 1;
+            currentQuestionIdx = 0;
+            matchScore = 0;
+            roundResults = [];
+            isTransitioning = false;
+            isMatchOverState = false;
+
+            updateHUD();
+            renderProgressDots();
+            showCurrentPrompt();
+        }
+
+        function startNextRound() {
+            playTone('tap');
+            triggerHaptic(15);
+
+            const modal = document.getElementById('round-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            currentRound++;
+            currentQuestionIdx = 0;
+            roundResults = [];
+            isTransitioning = false;
+
+            updateHUD();
+            renderProgressDots();
+            showCurrentPrompt();
+        }
+
+        function handleModalAction() {
+            if (isMatchOverState) {
+                startNewMatch();
+            } else {
+                startNextRound();
+            }
+        }
+
+        function getCurrentPrompt() {
+            const globalIndex = (currentRound - 1) * QUESTIONS_PER_ROUND + currentQuestionIdx;
+            return matchPrompts[globalIndex];
+        }
+
+        function showCurrentPrompt() {
+            const prompt = getCurrentPrompt();
+            const signEl = document.getElementById('scenario-sign');
+            const textEl = document.getElementById('scenario-text');
+            const badgeEl = document.getElementById('feedback-badge');
+            const swipeOverlay = document.getElementById('swipe-hint-overlay');
+            const btnBlue = document.getElementById('btn-courageous');
+            const btnRed = document.getElementById('btn-non-courageous');
+
+            // Reset sign transform and styling
+            signEl.style.transition = '';
+            signEl.style.transform = '';
+            signEl.style.backgroundColor = '#FFFFFF';
+            signEl.style.borderColor = '#0F172A';
+            signEl.classList.remove('animate-shake', 'animate-correct', 'animate-pop');
+            void signEl.offsetWidth;
+            signEl.classList.add('animate-pop');
+
+            badgeEl.classList.add('hidden');
+            swipeOverlay.classList.add('hidden');
+            textEl.textContent = `"${prompt.text}"`;
+
+            btnBlue.disabled = false;
+            btnRed.disabled = false;
+            isTransitioning = false;
+        }
+
+        function spawnFloatingFeedback(isCorrect) {
+            const signEl = document.getElementById('scenario-sign');
+            const toast = document.createElement('div');
+            toast.className = `floating-toast font-display font-bold text-lg px-3.5 py-0.5 rounded-full border-[3px] border-slate-900 shadow-md ${
+                isCorrect ? 'bg-emerald-400 text-slate-950' : 'bg-rose-500 text-white'
+            }`;
+            toast.textContent = isCorrect ? '+1 ⭐' : 'Oops! ❌';
+            signEl.appendChild(toast);
+            setTimeout(() => toast.remove(), 850);
+        }
+
+        function handleChoice(userChoseCourageous) {
+            if (isTransitioning) return;
+            isTransitioning = true;
+
+            const btnBlue = document.getElementById('btn-courageous');
+            const btnRed = document.getElementById('btn-non-courageous');
+            btnBlue.disabled = true;
+            btnRed.disabled = true;
+
+            const currentPrompt = getCurrentPrompt();
+            const isCorrect = (userChoseCourageous === currentPrompt.isCourageous);
+
+            const signEl = document.getElementById('scenario-sign');
+            const badgeEl = document.getElementById('feedback-badge');
+            const swipeOverlay = document.getElementById('swipe-hint-overlay');
+
+            // Reset any drag offset cleanly
+            signEl.style.transition = 'background-color 0.2s ease, border-color 0.2s ease';
+            signEl.style.transform = '';
+            swipeOverlay.classList.add('hidden');
+            badgeEl.classList.remove('hidden');
+
+            spawnFloatingFeedback(isCorrect);
+
+            if (isCorrect) {
+                matchScore++;
+                roundResults.push(true);
+                playTone('correct');
+                triggerHaptic([20, 30, 25]);
+
+                signEl.style.backgroundColor = '#DCFCE7';
+                signEl.style.borderColor = '#16A34A';
+                signEl.classList.add('animate-correct');
+
+                badgeEl.className = 'mt-1.5 px-3 py-0.5 rounded-full font-display font-bold text-xs sm:text-sm border-2 border-slate-900 bg-emerald-400 text-slate-950';
+                badgeEl.textContent = currentPrompt.isCourageous
+                    ? '✅ Courageous!'
+                    : '✅ Non-Courageous!';
+            } else {
+                roundResults.push(false);
+                playTone('wrong');
+                triggerHaptic([60, 40, 60]);
+
+                signEl.style.backgroundColor = '#FEE2E2';
+                signEl.style.borderColor = '#DC2626';
+                signEl.classList.add('animate-shake');
+
+                badgeEl.className = 'mt-1.5 px-3 py-0.5 rounded-full font-display font-bold text-xs sm:text-sm border-2 border-slate-900 bg-rose-400 text-slate-950';
+                badgeEl.textContent = currentPrompt.isCourageous
+                    ? '❌ Actually Courageous!'
+                    : '❌ Actually Non-Courageous!';
+            }
+
+            updateHUD();
+            renderProgressDots();
+
+            setTimeout(() => {
+                currentQuestionIdx++;
+                if (currentQuestionIdx < QUESTIONS_PER_ROUND) {
+                    updateHUD();
+                    showCurrentPrompt();
+                } else {
+                    finishRoundOrMatch();
+                }
+            }, 900);
+        }
+
+        function finishRoundOrMatch() {
+            const modal = document.getElementById('round-modal');
+            const emojiEl = document.getElementById('modal-emoji');
+            const titleEl = document.getElementById('modal-title');
+            const scorePillEl = document.getElementById('modal-score-pill');
+            const msgEl = document.getElementById('modal-message');
+            const actionBtnEl = document.getElementById('modal-action-btn');
+
+            const currentRoundTarget = currentRound * QUESTIONS_PER_ROUND; // 6, 12, or 18
+
+            if (currentRound < TOTAL_ROUNDS) {
+                // End of Round 1 or Round 2 -> Continue to next round
+                isMatchOverState = false;
+                playTone('correct');
+                triggerHaptic([25, 40, 25]);
+
+                emojiEl.textContent = '🔥';
+                titleEl.textContent = `Round ${currentRound} Complete!`;
+                scorePillEl.className = 'inline-block bg-sky-200 border-[3px] border-slate-900 font-display text-2xl font-bold px-5 py-1 rounded-2xl mb-3';
+                scorePillEl.textContent = `Round ${currentRound}: ${matchScore}/${currentRoundTarget}`;
+                msgEl.textContent = `Keep going! Up next is Round ${currentRound + 1} (out of ${(currentRound + 1) * QUESTIONS_PER_ROUND}).`;
+                actionBtnEl.textContent = `Start Round ${currentRound + 1} 🚀`;
+            } else {
+                // End of Round 3 -> MATCH OVER
+                isMatchOverState = true;
+                titleEl.textContent = 'Match over';
+                scorePillEl.textContent = `Round 3: ${matchScore}/${TOTAL_MATCH_QUESTIONS}`;
+                actionBtnEl.textContent = 'Play New Match 🔄';
+
+                if (matchScore === TOTAL_MATCH_QUESTIONS) {
+                    // Perfect 18/18 match -> Increment match wins!
+                    totalWins++;
+                    try {
+                        localStorage.setItem(WINS_STORAGE_KEY, String(totalWins));
+                    } catch (e) {}
+
+                    updateHUD();
+                    playTone('win');
+                    triggerHaptic([40, 50, 40, 50, 90]);
+                    launchConfetti();
+
+                    emojiEl.textContent = '🏆';
+                    scorePillEl.className = 'inline-block bg-amber-300 border-[3px] border-slate-900 font-display text-2xl font-bold px-5 py-1 rounded-2xl mb-3';
+                    msgEl.textContent = `Perfect 18/18 across all 3 rounds! You earned a match win (wins🏆: ${totalWins})!`;
+                } else {
+                    // Match finished below 18/18
+                    emojiEl.textContent = '💪';
+                    scorePillEl.className = 'inline-block bg-sky-200 border-[3px] border-slate-900 font-display text-2xl font-bold px-5 py-1 rounded-2xl mb-3';
+                    msgEl.textContent = `You finished the match with ${matchScore}/${TOTAL_MATCH_QUESTIONS}! Get a perfect 18/18 next match to earn a win trophy!`;
+                }
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function updateHUD() {
+            const currentRoundTarget = currentRound * QUESTIONS_PER_ROUND; // 6, 12, or 18
+            document.getElementById('score-display').textContent = `Round ${currentRound}: ${matchScore}/${currentRoundTarget}`;
+
+            const displayPromptNum = Math.min(currentQuestionIdx + 1, QUESTIONS_PER_ROUND);
+            document.getElementById('question-counter').textContent = `Round ${currentRound}/3 • Prompt ${displayPromptNum}/${QUESTIONS_PER_ROUND}`;
+
+            document.getElementById('wins-display').innerHTML = `wins<span class="trophy-bob">🏆</span>: ${totalWins}`;
+        }
+
+        function renderProgressDots() {
+            const container = document.getElementById('progress-dots');
+            container.innerHTML = '';
+
+            for (let i = 0; i < QUESTIONS_PER_ROUND; i++) {
+                const seg = document.createElement('div');
+                let colorClass = 'bg-white/60 border-slate-900/40';
+
+                if (i < roundResults.length) {
+                    colorClass = roundResults[i]
+                        ? 'bg-emerald-400 border-slate-900'
+                        : 'bg-rose-500 border-slate-900';
+                } else if (i === currentQuestionIdx) {
+                    colorClass = 'bg-amber-300 border-slate-900 scale-y-125';
+                }
+
+                seg.className = `h-2.5 rounded-full border-[1.5px] transition-all duration-200 ${colorClass}`;
+                container.appendChild(seg);
+            }
+        }
+
+        // =========================================================================
+        // 5. MOBILE SWIPE GESTURES ON SCENARIO SIGN
+        // =========================================================================
+        function setupSwipeGestures() {
+            const signEl = document.getElementById('scenario-sign');
+            const swipeOverlay = document.getElementById('swipe-hint-overlay');
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+            const SWIPE_THRESHOLD = 75;
+
+            signEl.addEventListener('touchstart', (e) => {
+                if (isTransitioning) return;
+                startX = e.touches[0].clientX;
+                currentX = startX;
+                isDragging = true;
+                signEl.style.transition = 'none';
+            }, { passive: true });
+
+            signEl.addEventListener('touchmove', (e) => {
+                if (!isDragging || isTransitioning) return;
+                currentX = e.touches[0].clientX;
+                const deltaX = currentX - startX;
+                const rotateDeg = deltaX * 0.05;
+
+                signEl.style.transform = `translateX(${deltaX * 0.65}px) rotate(${rotateDeg}deg)`;
+
+                if (deltaX < -25) {
+                    swipeOverlay.classList.remove('hidden');
+                    swipeOverlay.className = 'absolute inset-0 pointer-events-none flex items-center justify-center font-display text-lg sm:text-xl font-bold uppercase tracking-wider text-center px-2 bg-blue-500/20 text-blue-700';
+                    swipeOverlay.textContent = '← 🦁 Courageous';
+                } else if (deltaX > 25) {
+                    swipeOverlay.classList.remove('hidden');
+                    swipeOverlay.className = 'absolute inset-0 pointer-events-none flex items-center justify-center font-display text-lg sm:text-xl font-bold uppercase tracking-wider text-center px-2 bg-red-500/20 text-red-700';
+                    swipeOverlay.textContent = 'Non-Courageous 🙈 →';
+                } else {
+                    swipeOverlay.classList.add('hidden');
+                }
+            }, { passive: true });
+
+            signEl.addEventListener('touchend', () => {
+                if (!isDragging || isTransitioning) return;
+                isDragging = false;
+                const deltaX = currentX - startX;
+
+                if (deltaX <= -SWIPE_THRESHOLD) {
+                    handleChoice(true);  // Swiped Left -> Courageous
+                } else if (deltaX >= SWIPE_THRESHOLD) {
+                    handleChoice(false); // Swiped Right -> Non-Courageous
+                } else {
+                    // Snap smoothly back to center
+                    signEl.style.transition = 'transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)';
+                    signEl.style.transform = '';
+                    swipeOverlay.classList.add('hidden');
+                }
+            });
+        }
+
+        // =========================================================================
+        // 6. THEME SWITCHER, SOUND TOGGLE & CONFETTI
+        // =========================================================================
+        function applyTheme(index) {
+            const theme = VIBRANT_THEMES[index];
+            document.getElementById('app-body').style.background = theme.gradient;
+            document.getElementById('theme-name-pill').textContent = theme.name;
+        }
+
+        function cycleTheme() {
+            playTone('tap');
+            triggerHaptic(12);
+            currentThemeIndex = (currentThemeIndex + 1) % VIBRANT_THEMES.length;
+            applyTheme(currentThemeIndex);
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-icon').textContent = soundEnabled ? '🔊' : '🔇';
+            if (soundEnabled) playTone('tap');
+        }
+
+        function launchConfetti() {
+            const colors = ['#3B82F6', '#EF4444', '#FACC15', '#10B981', '#A855F7', '#EC4899'];
+            for (let i = 0; i < 60; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDuration = (Math.random() * 1.4 + 1.4) + 's';
+                piece.style.animationDelay = (Math.random() * 0.35) + 's';
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), 3200);
+            }
+        }
+
+        // Keyboard shortcuts for desktop testing
+        document.addEventListener('keydown', (e) => {
+            if (!isGameStarted) {
+                if (e.key === 'Enter' || e.key === ' ') enterGameFromHub();
+                return;
+            }
+            const modal = document.getElementById('round-modal');
+            if (!modal.classList.contains('hidden')) {
+                if (e.key === 'Enter' || e.key === ' ') handleModalAction();
+                return;
+            }
+            if (e.key === 'ArrowLeft') handleChoice(true);
+            else if (e.key === 'ArrowRight') handleChoice(false);
+        });
+
+        // Apply initial vibrant theme and initialize Start Hub HUD
+        applyTheme(currentThemeIndex);
+        window.onload = function () {
+            setupSwipeGestures();
+            updateHUD();
+            renderProgressDots();
+        };
+    </script>
+</body>
+</html>
